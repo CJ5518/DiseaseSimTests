@@ -53,20 +53,24 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 	if algorithm == Algorithms.Deterministic then
 		function sim.tick(self)
 			if not self then error("Call this function with ':' please") end
-			--test firstly on only one cell
-			local cell = self.board[1][1];
-			local newState = {}
-			for q = 1, #cell do
-				newState[q] = cell[q]
+			for x = 1, #sim.board do
+				for y = 1, #sim.board[x] do
+					--test firstly on only one cell
+					local cell = self.board[x][y];
+					local newState = {}
+					for q = 1, #cell do
+						newState[q] = cell[q]
+					end
+					for i, v in pairs(self.reactions) do
+						local stoichiometry = v[2];
+						local magicNumbers = v[1];
+						local number = propensityFuncs[magicNumbers[1]](cell, self, magicNumbers);
+						newState[stoichiometry[2]] = newState[stoichiometry[2]] + number;
+						newState[stoichiometry[1]] = newState[stoichiometry[1]] - number;
+					end
+					self.board[x][y] = newState;
+				end
 			end
-			for i, v in pairs(self.reactions) do
-				local stoichiometry = v[2];
-				local magicNumbers = v[1];
-				local number = propensityFuncs[magicNumbers[1]](cell, self, magicNumbers);
-				newState[stoichiometry[2]] = newState[stoichiometry[2]] + number;
-				newState[stoichiometry[1]] = newState[stoichiometry[1]] - number;
-			end
-			self.board[1][1] = newState;
  
 		end
 	elseif sim.algorithm == Algorithms.Gillespie then

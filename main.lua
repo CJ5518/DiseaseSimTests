@@ -61,13 +61,20 @@ love.draw = function()
 				currentCellY = y;
 			end
 			--Draw the cell
+			local cell = sim.board[x][y];
+			local sum = 0; for q = 1, #cell do sum = sum + cell[q]; end
+			local n = 1 - (cell[2] / (sum/1.2));
+			love.graphics.setColor(1, n,n)
 			love.graphics.rectangle("fill", currX,currY,drawBoxSize, drawBoxSize)
+			love.graphics.setColor(0,0,0)
+			love.graphics.print(string.format("%.1f", cell[2]), currX, currY)
 			currY = currY + drawBoxSize + drawBoxGap
 		end
 		currX = currX + drawBoxSize + drawBoxGap
 	end
 
-	-- example window
+	--ImGui messes up without this
+	love.graphics.setColor(1,1,1)
 	imgui.Begin("Window")
 
 	imgui.SetWindowFontScale(1.8)
