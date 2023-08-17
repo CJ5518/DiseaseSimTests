@@ -13,18 +13,29 @@ math.random();
 local sizeX = 5;
 local sizeY = 5;
 
-local sim = makeSimulation(3, {
-	--First function, 2nd state times 2nd param, goesfrom state 2 to state 3
-	{{1,2,2},{2,3}},
-	--Second function (more complex), (idx3 * idx2 * idx1) / Num
-	--First two states (SI) then first param. goes from S to I (1 to 2) 
-	{{2,1,2,1},{1,2}}
-}, {0.5, 0.1}, Algorithms.Deterministic, sizeX, sizeY, function(x,y)
-	return 1000
-end)
+local simulations = {
+	makeSimulation(3, {
+		--First function, 2nd state times 2nd param, goesfrom state 2 to state 3
+		{{1,2,2},{2,3}},
+		--Second function (more complex), (idx3 * idx2 * idx1) / Num
+		--First two states (SI) then first param. goes from S to I (1 to 2) 
+		{{2,1,2,1},{1,2}}
+	}, {0.5, 0.1}, Algorithms.Deterministic, sizeX, sizeY, function(x,y)
+		return 1000
+	end),
+	makeSimulation(3, {
+		--First function, 2nd state times 2nd param, goesfrom state 2 to state 3
+		{{1,2,2},{2,3}},
+		--Second function (more complex), (idx3 * idx2 * idx1) / Num
+		--First two states (SI) then first param. goes from S to I (1 to 2) 
+		{{2,1,2,1},{1,2}}
+	}, {0.5, 0.1}, Algorithms.DeterministicWithMovement, sizeX, sizeY, function(x,y)
+		return 1000
+	end)
+}
 
 
-local function getCellState(x,y)
+local function getCellState(x,y, sim)
 	if x == -1 or y == -1 then return {-1,-1,-1} end
 	return sim.board[x][y];
 end
@@ -44,21 +55,22 @@ local drawBoxGap = 3;
 
 local currentCellX = -1
 local currentCellY = -1
+local currentSim = simulations[1]
 
-love.draw = function()
-	love.graphics.setBackgroundColor(88/255, 130/255, 114/255)
 
+local function drawSim(sim, currXStart, currYStart)
 	local mouseX, mouseY = love.mouse.getPosition()
 
 	--Draw the board
-	local currX = 800;
+	local currX = currXStart or 800;
 	for x = 1, sizeX do
-		local currY = 400;
+		local currY =  currYStart or 400;
 		for y = 1, sizeY do
 			--Check if the mouse is hovering on this cell
 			if mouseX > currX and mouseX < currX + drawBoxSize and mouseY > currY and mouseY < currY + drawBoxSize then
 				currentCellX = x;
 				currentCellY = y;
+				currentSim = sim;
 			end
 			--Draw the cell
 			local cell = sim.board[x][y];
@@ -72,6 +84,13 @@ love.draw = function()
 		end
 		currX = currX + drawBoxSize + drawBoxGap
 	end
+end
+
+love.draw = function()
+	love.graphics.setBackgroundColor(88/255, 130/255, 114/255)
+
+	drawSim(simulations[1])
+	drawSim(simulations[2], 300, 400)
 
 	--ImGui messes up without this
 	love.graphics.setColor(1,1,1)
@@ -79,7 +98,7 @@ love.draw = function()
 
 	imgui.SetWindowFontScale(1.8)
 	imgui.Text("Current Cell: " .. currentCellX .. ", " .. currentCellY)
-	local state = getCellState(currentCellX, currentCellY);
+	local state = getCellState(currentCellX, currentCellY, currentSim);
 	imgui.Text("State: " .. table.concat(state, ", "))
 	
 
@@ -99,7 +118,8 @@ love.update = function(dt)
 	imgui.NewFrame()
 
 	if wantTickSim then
-		sim:tick()
+		print(currentSim.tick)
+		currentSim:tick()
 		wantTickSim = false;
 	end
 end
@@ -140,8 +160,8 @@ love.keypressed = function(key, ...)
 			wantTickSim = true;
 		elseif key == "i" then
 			if currentCellX >= 0 then
-				sim.board[currentCellX][currentCellY][2] = sim.board[currentCellX][currentCellY][2] + 10
-				sim.board[currentCellX][currentCellY][1] = sim.board[currentCellX][currentCellY][1] - 10
+				currentSim.board[currentCellX][currentCellY][2] = currentSim.board[currentCellX][currentCellY][2] + 10
+				currentSim.board[currentCellX][currentCellY][1] = currentSim.board[currentCellX][currentCellY][1] - 10
 			end
 		end
 
