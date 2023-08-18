@@ -4,6 +4,8 @@ Algorithms = {
 	DeterministicWithMovement = 3
 }
 
+--https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7436714/#insr12402-sec-0032title
+
 local function sumArray(arr)
 	local sum = 0;
 	for q = 1, #arr do
@@ -49,6 +51,19 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 		return newState;
 	end
 
+	function sim.getNeighbors(self, x,y)
+		local ret = {};
+		if self.board[x+1] then
+			ret[#ret+1] = self.board[x+1][y];
+		end
+		if self.board[x-1] then
+			ret[#ret+1] = self.board[x-1][y];
+		end
+		ret[#ret+1] = self.board[x][y+1];
+		ret[#ret+1] = self.board[x][y-1];
+		return ret;
+	end
+
 
 	--Initialize the board
 	sim.board = {}
@@ -58,7 +73,6 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 			sim.board[x][y] = sim:makeDiseaseState(x,y)
 		end
 	end
-	print(algorithm)
 	if algorithm == Algorithms.Deterministic then
 		function sim.tick(self)
 			if not self then error("Call this function with ':' please") end
@@ -86,23 +100,34 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 	elseif algorithm == Algorithms.DeterministicWithMovement then
 		function sim.tick(self)
 			if not self then error("Call this function with ':' please") end
+
+			local newBoard = {};
+
 			for x = 1, #self.board do
+				newBoard[x] = {}
 				for y = 1, #self.board[x] do
 					local cell = self.board[x][y];
 					local newState = self:cloneState(cell)
 
 					local sumFactor = 0;
+
+					local neighbors = self:getNeighbors(x,y)
+					for q = 1, #neighbors do
+						local neighborFactor = neighbors[q][2] / sumArray(cell);
+						sumFactor = sumFactor + neighborFactor;
+					end
 					
 					--S
-					newState[1] = cell[1] - ((self.params[1] * cell[1] * cell[2]) / sumArray(cell)) - (self.params[1] * cell[1] * sumFactor);
+					newState[1] = cell[1] - ((self.params[1] * cell[1] * cell[2]) / sumArray(cell)) - (self.params[1] * cell[1] * sumFactor / sumArray(cell));
 					--I
-					newState[2] = (cell[2] * (1-self.params[2])) + ((self.params[1] * cell[1] * cell[2]) / sumArray(cell)) + (self.params[1] * cell[1] * sumFactor)
+					newState[2] = (cell[2] * (1-self.params[2])) + ((self.params[1] * cell[1] * cell[2]) / sumArray(cell)) + (self.params[1] * cell[1] * sumFactor / sumArray(cell))
 					--R
 					newState[3] = cell[3] + (self.params[2] * cell[2])
 					
-					self.board[x][y] = newState;
+					newBoard[x][y] = newState;
 				end
 			end
+			self.board = newBoard;
 		end
 	end
 
