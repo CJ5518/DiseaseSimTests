@@ -1,5 +1,6 @@
 
 local makeSimulation = require("simulation")
+local ffi = require("ffi")
 
 
 
@@ -20,7 +21,7 @@ local simulations = {
 		--Second function (more complex), (idx3 * idx2 * idx1) / Num
 		--First two states (SI) then first param. goes from S to I (1 to 2) 
 		{{2,1,2,1},{1,2}}
-	}, {0.5, 0.1}, Algorithms.Deterministic, sizeX, sizeY, function(x,y)
+	}, {0.5, 0.1}, Algorithms.Gillespie, sizeX, sizeY, function(x,y)
 		return 1000
 	end),
 	makeSimulation(3, {
@@ -29,10 +30,13 @@ local simulations = {
 		--Second function (more complex), (idx3 * idx2 * idx1) / Num
 		--First two states (SI) then first param. goes from S to I (1 to 2) 
 		{{2,1,2,1},{1,2}}
-	}, {0.5, 0.1}, Algorithms.DeterministicWithMovement, sizeX, sizeY, function(x,y)
+	}, {0.5, 0.1}, Algorithms.DeterministicWithMovement, sizeX, sizeY + 5, function(x,y)
 		return 1000
 	end)
 }
+
+--loggers[###].filename, cellX, cellY, simulation
+local loggers = {};
 
 
 local function getCellState(x,y, sim)
@@ -63,9 +67,9 @@ local function drawSim(sim, currXStart, currYStart)
 
 	--Draw the board
 	local currX = currXStart or 800;
-	for x = 1, sizeX do
+	for x = 1, sim.boardSizeX do
 		local currY =  currYStart or 400;
-		for y = 1, sizeY do
+		for y = 1, sim.boardSizeY do
 			--Check if the mouse is hovering on this cell
 			if mouseX > currX and mouseX < currX + drawBoxSize and mouseY > currY and mouseY < currY + drawBoxSize then
 				currentCellX = x;
@@ -86,6 +90,9 @@ local function drawSim(sim, currXStart, currYStart)
 	end
 end
 
+
+local csvNameBuf = ffi.new("char[256]");
+
 love.draw = function()
 	love.graphics.setBackgroundColor(88/255, 130/255, 114/255)
 
@@ -100,6 +107,10 @@ love.draw = function()
 	imgui.Text("Current Cell: " .. currentCellX .. ", " .. currentCellY)
 	local state = getCellState(currentCellX, currentCellY, currentSim);
 	imgui.Text("State: " .. table.concat(state, ", "))
+	imgui.Text("SimTime: " .. tostring(currentSim.time))
+	imgui.InputText("Csv filename", csvNameBuf, 256)
+	print(ffi.string(csvNameBuf))
+	imgui.Text("Press 'c' to begin output file writing on the current cell")
 	
 
 	--Done like this because vscode is silly and turning 'end' into 'End'
@@ -118,7 +129,17 @@ love.update = function(dt)
 	imgui.NewFrame()
 
 	if wantTickSim then
-		print(currentSim.tick)
+		for q = 1, #loggers do
+			local logger = loggers[q];
+			if not logger.initialized then
+				
+				logger.file = io.open(logger.filename, "w");
+				logger.file:write("S,I,R")
+				logger.initialized = true;
+			end
+			local cell = logger.simulation.board[logger.cellX][logger.cellY]
+			logger.file:write(string.format("%f,%f,%f\n", cell[1], cell[2], cell[3]))
+		end
 		currentSim:tick()
 		wantTickSim = false;
 	end
@@ -162,6 +183,15 @@ love.keypressed = function(key, ...)
 			if currentCellX >= 0 then
 				currentSim.board[currentCellX][currentCellY][2] = currentSim.board[currentCellX][currentCellY][2] + 10
 				currentSim.board[currentCellX][currentCellY][1] = currentSim.board[currentCellX][currentCellY][1] - 10
+			end
+		elseif key == "c" then
+			if currentCellX >= 0 then
+				local logger = {}
+				logger.filename = ffi.string(csvNameBuf);
+				logger.cellX = currentCellX;
+				logger.cellY = currentCellY;
+				logger.simulation = currentSim;
+				loggers[#loggers+1] = logger;
 			end
 		end
 

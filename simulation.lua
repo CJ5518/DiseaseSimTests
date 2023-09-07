@@ -1,7 +1,7 @@
 Algorithms = {
-	Gillespie = 1,
-	Deterministic = 2,
-	DeterministicWithMovement = 3
+	Gillespie = 1, --Basic gillespie
+	Deterministic = 2, -- Basic deterministic mode
+	DeterministicWithMovement = 3 --Basic deterministic mode with mvoement 
 }
 
 --https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7436714/#insr12402-sec-0032title
@@ -33,6 +33,9 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 	sim.stateCount = stateCount;
 	sim.reactions = reactions;
 	sim.params = params;
+	sim.boardSizeX = boardSizeX;
+	sim.boardSizeY = boardSizeY;
+	sim.time = 0;
 
 	function sim.makeDiseaseState(self,x,y)
 		local ret = {};
@@ -76,6 +79,7 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 	if algorithm == Algorithms.Deterministic then
 		function sim.tick(self)
 			if not self then error("Call this function with ':' please") end
+			sim.time = sim.time + 1;
 			for x = 1, #sim.board do
 				for y = 1, #sim.board[x] do
 					local cell = self.board[x][y];
@@ -94,13 +98,61 @@ local function makeSimulation(stateCount, reactions, params, algorithm, boardSiz
 	elseif algorithm == Algorithms.Gillespie then
 		function sim.tick(self)
 			if not self then error("Call this function with ':' please") end
+			for x = 1, #sim.board do
+				for y = 1, #sim.board[x] do
+					local cell = self.board[x][y];
+					local newState = self:cloneState(cell)
+					
 
+					local r1 = math.random();
+					local r2 = math.random();
+					local tau = 0;
+					local propSum = 0;
+					local aj = {};
+					for i, v in pairs(self.reactions) do
+						local stoichiometry = v[2];
+						local magicNumbers = v[1];
+						local propRes = propensityFuncs[magicNumbers[1]](cell, self, magicNumbers);
+						aj[#aj+1] = propRes;
+						propSum = propSum + propRes;
+					end
+					tau = (1/propSum) * math.log(1/r1);
+
+					--find j
+					local j = 0;
+					local propSumR2 = r2 * propSum;
+					for q = 1, #self.reactions do
+						local bigger = 0;
+						print(q);
+						for i = 1, q do
+							bigger = bigger + aj[i]
+						end
+						print(bigger, propSumR2)
+						if bigger > propSumR2 then
+							j = q;
+							break
+						end
+					end
+
+					--Do the one reaction
+					if j ~= 0 then
+						local stoichiometry = self.reactions[j][2];
+						newState[stoichiometry[2]] = newState[stoichiometry[2]] + 1;
+						newState[stoichiometry[1]] = newState[stoichiometry[1]] - 1;
+						sim.time = sim.time + tau;
+						
+					end
+
+
+					self.board[x][y] = newState;
+				end
+			end
 		end
 
 	elseif algorithm == Algorithms.DeterministicWithMovement then
 		function sim.tick(self)
 			if not self then error("Call this function with ':' please") end
-
+			sim.time = sim.time + 1;
 			local newBoard = {};
 
 			for x = 1, #self.board do
